@@ -1,38 +1,33 @@
 import { createPost, fetchPosts, uploadImage } from '../models/mainPageModel.js';
 
-// Get posts and render the main page
+// ✅ Get posts and render main page (no Nutritionix API needed)
 export const getMainPage = async (req, res) => {
   try {
     const posts = await fetchPosts();
 
-    // Access the Nutritionix API credentials from environment variables
-    const nutritionixApiKey = process.env.NUTRITIONIX_API_KEY;
-    const nutritionixAppId = process.env.NUTRITIONIX_APP_ID;
-
-    res.render('main.ejs', {
-      posts, 
-      nutritionixApiKey, 
-      nutritionixAppId
-    });
+    // Render posts without nutrition API keys
+    res.render('main.ejs', { posts });
   } catch (err) {
-    console.error('Error:', err);
+    console.error('Error fetching posts:', err);
     res.status(500).send('An error occurred. Please try again.');
   }
 };
 
-// Add a new post
+// ✅ Add a new post (user manually inputs ingredients and calories)
 export const addPost = async (req, res) => {
-  const { title, description, category } = req.body;
-  let ingredients = req.body.ingredients;
-  const quantity = req.body.quantity;
-  const user_id = req.session.user_id;
-  const imageFile = req.file;
-  const calories = req.body.calories;
-
   try {
-    let imageUrl = null;
+    const { title, description, category, calories } = req.body;
+    let { ingredients } = req.body;
+    const user_id = req.session.user_id;
+    const imageFile = req.file;
 
-    // If image is provided, upload it to Supabase storage
+    // Convert ingredients from string to array if necessary
+    if (typeof ingredients === 'string') {
+      ingredients = ingredients.split(',').map(item => item.trim());
+    }
+
+    // Upload image if provided
+    let imageUrl = null;
     if (imageFile) {
       imageUrl = await uploadImage(imageFile);
     }
@@ -45,16 +40,16 @@ export const addPost = async (req, res) => {
       category,
       ingredients,
       image: imageUrl,
-      calories,
+      calories: parseInt(calories),
     };
 
-    // Insert post data into the database
-    const post = await createPost(postData);
+    // Insert post data into database
+    await createPost(postData);
 
-    // Respond with success
-    return res.status(201).json({ user_id });
+    // Return success
+    res.status(201).json({ message: 'Post created successfully' });
   } catch (error) {
-    console.error("Error:", error);
-    return res.status(500).send("An error occurred. Please try again.");
+    console.error('Error adding post:', error);
+    res.status(500).send('An error occurred while creating the post.');
   }
 };
