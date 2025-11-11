@@ -20,7 +20,7 @@ export default {
         return res.redirect('/');
       }
 
-      post.ingredients = JSON.parse(post.ingredients || '[]');
+      post.ingredients = post.ingredients || '';
       post.comments = post.comments || [];
       const isLiked = post.liked_user_id && post.liked_user_id.includes(user.user_id);
       const isSaved = user.saved_post_id && user.saved_post_id.includes(postId);

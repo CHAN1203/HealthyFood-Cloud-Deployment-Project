@@ -50,9 +50,13 @@
         
             <h4>Ingredients:</h4>
             <ul>
-                <% post.ingredients.forEach(ingredient => { %>
-                    <li><%= ingredient.name %>, <%= ingredient.calories %> kcal</li>
-                <% }); %>
+                <% if (post.ingredients) { %>
+                    <% post.ingredients.split(',').forEach(item => { %>
+                    <li><%= item.trim() %></li>
+                    <% }) %>
+                <% } else { %>
+                    <li>No ingredients listed</li>
+                <% } %>
             </ul>
             <div id="total-calories"><h4>Total Calories: <%= post.calories %> kcal</h4></div>
            

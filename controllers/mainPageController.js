@@ -13,43 +13,35 @@ export const getMainPage = async (req, res) => {
   }
 };
 
-// ✅ Add a new post (user manually inputs ingredients and calories)
+
+// ✅ addPost controller to handle new post creation
 export const addPost = async (req, res) => {
   try {
-    const { title, description, category, calories } = req.body;
-    let { ingredients } = req.body;
+    const { title, description, category, ingredients, calories } = req.body;
     const user_id = req.session.user_id;
     const imageFile = req.file;
-
-    // Convert ingredients from string to array if necessary
-    if (typeof ingredients === 'string') {
-      ingredients = ingredients.split(',').map(item => item.trim());
-    }
+    let imageUrl = null;
 
     // Upload image if provided
-    let imageUrl = null;
     if (imageFile) {
       imageUrl = await uploadImage(imageFile);
     }
 
-    // Prepare post data to insert into database
+    // ✅ Store ingredients as plain text
     const postData = {
       user_id,
       title,
       description,
       category,
-      ingredients,
+      ingredients, // directly as text like "pigu" or "egg, sugar, milk"
       image: imageUrl,
       calories: parseInt(calories),
     };
 
-    // Insert post data into database
     await createPost(postData);
-
-    // Return success
-    res.status(201).json({ message: 'Post created successfully' });
+    res.status(201).json({ message: "Post created successfully" });
   } catch (error) {
-    console.error('Error adding post:', error);
-    res.status(500).send('An error occurred while creating the post.');
+    console.error("Error adding post:", error);
+    res.status(500).send("An error occurred while creating the post.");
   }
 };
