@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title><%= post.title %></title>
+    <link rel="stylesheet" href="/styles/postDetail.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+</head>
+<body>
+    <div class="close-button">
+        <button onclick="goBack()">
+            <i class="fa fa-times"></i> <!-- Font Awesome close icon -->
+        </button>
+    </div>
+
+    <div class="post-detail-container">
+        <!-- Left Side: Image Section -->
+        <div class="post-detail-image">
+            <img src="<%= post.image %>" alt="<%= post.title %>">
+        </div>
+        
+        <!-- Right Side: Details, Actions, and Comments Section -->
+        <div class="post-detail-info">
+            <div class="post-detail-header">
+                <div class="post-detail-user">
+                    <img src="<%= post_owner.profile_picture %>" alt="User Avatar">
+                    <span><%= post_owner.username %></span> 
+                </div>
+                <div class="post-detail-actions">
+                    <button id="likeBtn" class="<%= isLiked ? 'active' : '' %>">
+                        <i class="fas fa-heart"></i> <span id="likeCount"><%= post.likes %></span>
+                    </button>
+                    <button id="saveBtn" class="<%= isSaved ? 'active' : '' %>">
+                        <i class="fas fa-bookmark"></i>
+                    </button>
+                    <button id="flagBtn" class="flag-btn" onclick="openModal()"><i class="fas fa-flag"></i></button>
+
+                    <!-- New Remove Post Button -->
+                    <% if (post.user_id === user.user_id) { %>
+                    <button id="removeBtn" class="remove-post-btn" onclick="removePost()">
+                        <i class="fas fa-trash"></i>
+                    </button>
+                    <% } %>
+                </div>
+            </div>
+            <h2><%= post.title %></h2>
+            <p style="overflow-y: auto; max-height: 200px;"><%= post.description %></p>
+
+        
+            <h4>Ingredients:</h4>
+            <ul>
+                <% post.ingredients.forEach(ingredient => { %>
+                    <li><%= ingredient.name %>, <%= ingredient.calories %> kcal</li>
+                <% }); %>
+            </ul>
+            <div id="total-calories"><h4>Total Calories: <%= post.calories %> kcal</h4></div>
+           
+
+            <div class="comments-section">
+                <div id="commentsList">
+                    <% post.comments.forEach(comment => { %>
+                        <div class="comment">
+                            <div class="comment-user"><%= comment.user %></div> <!-- Display comment user -->
+                            <div class="comment-text"><%= comment.text %></div> <!-- Display comment text -->
+                        </div>
+                    <% }); %>                    
+                </div>
+            </div>
+            
+            
+                <form id="addCommentForm" action="/addComment" method="POST">
+                    <input type="text" id="newComment" name="commentText" placeholder="Add a comment...">
+                    <button type="submit">Post</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Report Modal -->
+    <div id="reportModal" class="modal">
+        <div class="modal-content">
+        <span class="close">&times;</span>
+        <div class="form">
+            <form id="reportForm" action="#" method="post">
+    
+            <!-- Options -->
+            <label for="restriction-type">Type of violation:</label>
+            <select id="restriction-type" name="flag_reason" required>
+                <option value="">--Select a violation--</option>
+                <option value="MISLEADING PICTURE">Misleading Picture</option>
+                <option value="HARMFUL CONTENT">Harmful Content</option>
+                <option value="PORNOGRAPHIC REFERENCES">Pornographic References</option>
+                <option value="HATE SPEECH AND DISCRIMINATION">Hate Speech and Discrimination</option>
+                <option value="HARASSMENT">Harassment</option>
+                <option value="MISINFORMATION">Misinformation</option>                
+            </select>
+
+    
+            <label for="description">Description of Restriction:</label>
+            <textarea id="description" name="flag_description" rows="4" placeholder="Provide details of the violation..." ></textarea>
+    
+            <button type="submit" id="submitReportButton">Submit Report</button>
+            <a href="/main" class="quit-button">Back</a>
+            </form>
+        </div>
+        </div>
+    </div>
+
+    <script>
+        const likeBtn = document.getElementById('likeBtn');
+        const postId = "<%= post.id %>"; // Retrieve the post ID dynamically
+        let likeTimeout;
+        let isLiked = <%= isLiked ? 'true' : 'false' %>;
+
+        // Remove Post function
+        async function removePost() {
+            const confirmDelete = confirm("Are you sure you want to delete this post?");
+            if (confirmDelete) {
+                try {
+                    const response = await fetch(`/post/<%= post.id %>/delete`, {
+                        method: 'DELETE',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+
+                    if (response.ok) {
+                        alert("Post deleted successfully.");
+                        goBack(); // Redirect to main or another page after deletion
+                    } else {
+                        alert("Failed to delete post. Please try again.");
+                    }
+                } catch (error) {
+                    console.error("Error deleting post:", error);
+                    alert("An error occurred. Please try again.");
+                }
+            }
+        }
+
+        // Function to update the button state
+        function updateLikeButtonState() {
+            likeBtn.classList.toggle('active', isLiked);
+        }
+
+        // Initial setup for the button state
+        updateLikeButtonState();
+
+        // Like button
+        likeBtn.addEventListener('click', () => {
+            clearTimeout(likeTimeout);
+            likeTimeout = setTimeout(async () => {
+                isLiked = !isLiked; // Toggle like state
+                updateLikeButtonState(); // Update button visually
+
+                try {
+                    const response = await fetch(`/post/<%= post.id %>/like`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ liked: isLiked })
+                    });
+
+                    if (response.ok) {
+                        const data = await response.json();
+                        document.getElementById('likeCount').textContent = data.likes; // Update like count
+                    } else {
+                        alert('Failed to update like.');
+                        isLiked = !isLiked; // Revert like state if request fails
+                        updateLikeButtonState(); // Revert button visually
+                    }
+                } catch (error) {
+                    console.error('Error:', error);
+                    isLiked = !isLiked; // Revert like state if there's an error
+                    updateLikeButtonState(); // Revert button visually
+                }
+            }, 300);
+        });
+        
+        // Initial save state from server
+        let isSaved = <%= isSaved ? 'true' : 'false' %>; 
+
+        // Function to update button state
+        function updateSaveButtonState() {
+            saveBtn.classList.toggle('active', isSaved);
+        }
+
+        // Initial state on page load
+        updateSaveButtonState();
+
+        // Save button click event
+        saveBtn.addEventListener('click', async () => {
+            // Toggle local isSaved state
+            isSaved = !isSaved;
+            updateSaveButtonState();
+
+            try {
+                // Send AJAX request to toggle save status
+                const response = await fetch(`/post/${<%= post.id %>}/save`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ saved: isSaved })
+                });
+
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log(data.message); // Optionally log success message
+                } else {
+                    // Revert state if request fails
+                    isSaved = !isSaved;
+                    updateSaveButtonState();
+                    console.error("Failed to save/unsave post.");
+                }
+            } catch (error) {
+                // Handle network or other errors, revert state
+                console.error("An error occurred:", error);
+                isSaved = !isSaved;
+                updateSaveButtonState();
+            }
+        });
+
+
+        
+
+        // Flag button
+        document.addEventListener("DOMContentLoaded", function() {
+            // Get the modal and necessary elements
+            const reportModal = document.getElementById("reportModal");
+            const closeBtn = document.querySelector(".close");
+            const reportForm = document.getElementById("reportForm");
+            const submitButton = document.getElementById("submitReportButton");
+            const restrictionDropdown = document.getElementById('restriction-type')
+
+            // Flag button click listener
+            const flagBtn = document.querySelector(".flag-btn"); // Adjust this selector if necessary
+    
+            // Function to open the modal and display the random report ID
+            async function openModal() {
+                
+                // Pass the post_owner username (from the server-side EJS)
+                const postOwnerUsername = "<%= post_owner.username %>";
+
+                // Store the username in the modal
+                reportModal.setAttribute('data-username', postOwnerUsername);     
+
+                // Pass the post ID (from the server-side EJS)
+                const post_id = "<%= postId %>";
+
+                // Store the post ID in the modal
+                reportModal.setAttribute('data-postID', post_id);   
+                
+                // Show the modal
+                reportModal.style.display = "block";
+            }
+    
+            // Attach click event listeners to the flag button (you can modify this based on your HTML structure)
+            if (flagBtn) {
+                flagBtn.addEventListener("click", openModal);
+            }
+    
+            // Function to close the modal
+            closeBtn.addEventListener("click", function() {
+                reportModal.style.display = "none";
+            });
+    
+            // Close the modal when clicking outside of it
+            window.addEventListener("click", function(event) {
+                if (event.target === reportModal) {
+                    reportModal.style.display = "none";
+                }
+            });
+    
+            // Handle form submission
+            reportForm.addEventListener("submit", async function(e) {
+                e.preventDefault();  // Prevent the default form submission
+    
+                // Collect form data
+                const restrictionType = restrictionDropdown.value;  // Get the selected restriction type
+                const description = document.getElementById("description").value;  // Get the description of the violation
+                const postOwnerUsername = reportModal.getAttribute('data-username'); // Retrieve username passed from server
+                const post_id = reportModal.getAttribute('data-postID'); // Retrieve post ID passed from server
+
+                // Validate form data (you can add more validation if needed)
+                if (!restrictionType) {
+                    alert("Please select an option.");
+                    return;
+                }
+    
+                // Prepare data to be sent to the backend
+                const data = {
+                    username: postOwnerUsername, // Send the username
+                    flag_reason: restrictionType,
+                    flag_description: description,
+                    postID: post_id,
+                };
+                try {
+                    const response = await fetch("/flagPost", {
+                        method: "POST",  // Use POST method for submitting the form
+                        headers: {
+                            "Content-Type": "application/json",
+                        },
+                        body: JSON.stringify(data),  // Send the form data as JSON
+                    });
+    
+                    const result = await response.json();
+                    if (response.ok) {
+                        alert("Report submitted successfully!");
+                        reportModal.style.display = "none";  // Close the modal after successful submission
+                    } else {
+                        alert("Failed to submit the report. Please try again.");
+                    }
+                } catch (error) {
+                    console.error("Error:", error);
+                    alert("An error occurred. Please try again.");
+                }
+            });
+        });        
+
+
+
+        // Comment form
+        addCommentForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const newCommentInput = document.getElementById('newComment');
+            const commentText = newCommentInput.value.trim();
+
+            if (commentText) {
+                try {
+                    const response = await fetch(`/post/<%= post.id %>/comment`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ text: commentText })
+                    });
+
+                    if (response.ok) {
+                        const comment = await response.json();
+                        // Append the new comment to the comment list in the DOM
+                        document.getElementById('commentsList').innerHTML += `
+                            <div class="comment">
+                                <div class="comment-user">${comment.user}</div>
+                                <div class="comment-text">${comment.text}</div>
+                            </div>
+                        `;
+                        newCommentInput.value = ''; // Clear the input
+                    } else {
+                        console.error("Failed to post comment.");
+                    }
+                } catch (error) {
+                    console.error("Error posting comment:", error);
+                }
+            }
+        });
+
+
+        
+        // JavaScript function to go back to the previous page or a specific page
+        function goBack() {
+            if (document.referrer) {
+                if (document.referrer.includes('/main')) {
+                    // Go back if the referrer is from the main page
+                    window.history.back();
+                } else if (document.referrer.includes('/profile')) {
+                    // Go to /profile if the referrer is from the profile page
+                    window.location.href = '/profile';
+
+                } else if (document.referrer.includes('/notifications')) {
+                    // Go to /profile if the referrer is from the profile page
+                    window.location.href = '/notifications';
+                } else if (document.referrer.includes('/admin')) {
+                    // Go to /profile if the referrer is from the profile page
+                    window.location.href = '/admin';
+                } else {
+                    // If referrer is not from main or profile, go to main directly
+                    window.location.href = '/main';
+                }
+            } else {
+                // No referrer, fallback to main
+                window.location.href = '/main';
+            }
+        }
+
+
+    </script>
+</body>
+</html>

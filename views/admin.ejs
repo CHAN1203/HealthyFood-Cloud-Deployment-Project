@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>OnlyFoods Admin Main Page</title>
+  <link rel="stylesheet" href="/styles/admin.css">
+  <link 
+    rel="stylesheet" 
+    href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"
+    integrity="sha512-Kc323vGBEqzTmouAECnVceyQqyqdsSiqLQISBL29aUW4U/M7pSPA/gEUZQqv1cwx4OnYxTxve5UMg5GT6L4JJg==" 
+    crossorigin="anonymous" 
+    referrerpolicy="no-referrer" 
+    />
+</head>
+<body>
+
+  <!-- Admin logo -->
+  <div class="admin_logo">ADMIN</div>   
+
+  <!-- Sidebar -->
+  <div class="sidebar">
+    <a href="/admin" style="text-decoration: none; color: inherit;">
+      <h2 class="logo">
+        <span class="logo-o">O</span><span class="logo-nly">nly</span
+        ><span class="logo-foods">Foods</span>
+      </h2>
+    </a> 
+    <a class="sidebar-btn" id="searchBarToggle">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <span>Search</span>
+    </a>
+    <a href="/logout" class="sidebar-btn" onclick="return confirmLogout(event)">
+      <i class="fa-solid fa-right-from-bracket"></i>
+      <span>Logout</span>
+  </a>
+    <!-- Search Bar (Initially hidden) -->
+      <div id="searchBar" style="display: none;">
+        <input type="text" id="searchInput" placeholder="Search for...">
+    </div>
+  </div>
+
+  <!-- Main Content -->
+  <div class="main-content">
+
+    <!-- Filter Buttons: All or specific flag reasons -->
+    <div class="tab-buttons">
+        <button onclick="filterByReason('all')" class="active">All</button>
+        <button onclick="filterByReason('MISLEADING PICTURE')">Misleading Picture</button>
+        <button onclick="filterByReason('HARMFUL CONTENT')">Harmful Content</button>
+        <button onclick="filterByReason('PORNOGRAPHIC REFERENCES')">Pornographic References</button>
+        <button onclick="filterByReason('HATE SPEECH AND DISCRIMINATION')">Hate Speech</button>
+        <button onclick="filterByReason('HARASSMENT')">Harassment</button>
+        <button onclick="filterByReason('MISINFORMATION')">Misinformation</button>
+    </div>
+
+    <hr class="custom-hr">
+
+<!-- Notifications List -->
+<div class="notification-list">
+    <% if (flaggedUsers && flaggedUsers.length > 0) { %>
+        <% flaggedUsers.forEach(user => { %>
+            <div class="notification-item" data-username="<%= user.username %>" data-flag-reason="<%= user.flag_reason %>">
+                <div class="user-info" >
+                    <img src="<%= user.profile_picture %>" alt="User"> 
+                    <div class="details">
+                        <strong><a href="#">@<%= user.username %></a></strong>
+                        
+                        <% if (user.flag_reason) { %>
+                            <span><%= user.username %> has been flagged for <%= user.flag_reason %> violation. - 
+                              <strong><a href="/post/<%= user.flagged_post %>"> View Post</a></strong> <br>
+                              Users reported: <%= user.flag_description %>
+                            </span>
+                        <% } else { %>
+                            <span>No flag reason for this user.</span>
+                        <% } %>
+                    </div>
+                </div>
+                <!-- Review Button -->
+                <button class="review-btn" onclick="openModal(this)">Review</button>
+            </div>
+        <% }); %>
+    <% } else { %>
+        <p>No flagged users at this time.</p>
+    <% } %>
+</div>
+
+
+<!-- Report Modal -->
+<div id="reportModal" class="modal">
+    <div class="modal-content">
+      <span class="close">&times;</span>
+      <div class="form">
+        <h2>Report ID: <span id="reportId"></span></h2>
+        <form id="reportForm" action="#" method="post">
+  
+          <!-- Options -->
+          <label for="restriction-type">Type of Restriction:</label>
+          <select id="restriction-type" name="restriction-type" required>
+            <option value="">--Select an option--</option>
+            <option value="Warning">Warning</option>
+            <option value="Suspend">Suspend</option>
+            <option value="Ban">Ban</option>
+          </select>
+  
+          <!-- Select Duration hidden -->
+          <div id="hidden-dropdown">
+            <label for="duration-dropdown">Duration:</label>
+            <select id="duration-dropdown" name="duration">
+              <option value="0">--Select a duration--</option>
+              <option value="1">1 Minute</option>
+              <option value="3">3 Days</option>
+              <option value="7">7 Days</option>
+              <option value="14">14 Days</option>
+              <option value="30">30 Days</option>
+            </select>
+          </div>
+  
+          <label for="description">Description of Restriction:</label>
+          <textarea id="description" name="description" rows="4" placeholder="Provide details of the violation..." ></textarea>
+  
+          <button type="submit" id="submitReportButton">Submit Report</button>
+          <a href="/admin" class="quit-button">Back</a>
+        </form>
+      </div>
+    </div>
+  </div>
+  
+  <script src="/script/searchAdmin.js"></script>
+
+  <script>
+    document.addEventListener("DOMContentLoaded", function() {
+        // Get the modal and necessary elements
+        const reportModal = document.getElementById("reportModal");
+        const reviewButtons = document.querySelectorAll(".review-btn");
+        const closeBtn = document.querySelector(".close");
+        const reportIdSpan = document.getElementById("reportId");
+        const reportForm = document.getElementById("reportForm");
+        const submitButton = document.getElementById("submitReportButton");
+    
+        // Function to generate a random 6-digit report ID
+        async function generateReportId() {
+            let isUnique = false;
+            let reportId;
+    
+            // Keep generating a new ID until it's unique (mocked check)
+            while (!isUnique) {
+                reportId = Math.floor(Math.random() * 900000) + 100000; // Random 6-digit ID
+                // For now assume the report ID is always unique (you can check with the backend here)
+                isUnique = true;
+            }
+            return reportId;
+        }
+
+      // Function to reset the form (clear all fields)
+      function resetForm() {
+        // Reset all form fields
+        reportForm.reset();  // This will reset all the form fields to their default values
+        const restrictionDropdown = document.getElementById('restriction-type');
+        const secondDropdownContainer = document.getElementById('hidden-dropdown');
+        const durationDropdown = document.getElementById('duration-dropdown');
+        
+        // Reset the restriction-type dropdown to its default (first option)
+        restrictionDropdown.value = "";
+        
+        // Hide the duration dropdown initially (since it's only shown for 'Suspend')
+        secondDropdownContainer.style.display = 'none';
+        
+        // Remove the "required" attribute from the duration dropdown if hidden
+        durationDropdown.removeAttribute('required');
+        
+        // Clear the report ID span
+        reportIdSpan.innerText = '';
+  }
+    
+        // Function to open the modal and display the random report ID
+        async function openModal(button) {
+
+            resetForm();
+            
+            const reportId = await generateReportId(); // Generate the random report ID
+            reportIdSpan.innerText = reportId; // Display the report ID in the modal
+
+            // Find the parent .notification-item of the clicked button
+            const notificationItem = event.target.closest(".notification-item");
+
+            // Get the username and flag reason from the parent element
+            const username = notificationItem.getAttribute("data-username");
+
+            // Store the username in a global variable for use when submitting the form
+            reportModal.setAttribute('data-username', username);     
+
+            // Show the modal
+            reportModal.style.display = "block";
+        }
+    
+        // Attach click event listeners to each "Review" button
+        reviewButtons.forEach(button => {
+            button.addEventListener("click", openModal);
+        });
+    
+        // Function to close the modal
+        closeBtn.addEventListener("click", function() {
+            reportModal.style.display = "none";
+        });
+    
+        // Close the modal when clicking outside of it
+        window.addEventListener("click", function(event) {
+            if (event.target === reportModal) {
+                reportModal.style.display = "none";
+            }
+        });
+    
+        // Dropdown functionality: Show or hide the second dropdown based on selection
+        const restrictionDropdown = document.getElementById('restriction-type');
+        const secondDropdownContainer = document.getElementById('hidden-dropdown');
+    
+        restrictionDropdown.addEventListener('change', function() {
+            if (this.value === 'Suspend') {
+                secondDropdownContainer.style.display = 'block';
+                durationDropdown.setAttribute('required', 'true');  // Make required
+            } else {
+                secondDropdownContainer.style.display = 'none';
+                durationDropdown.removeAttribute('required');  // Remove required
+            }
+        });
+    
+        // Handle form submission
+        reportForm.addEventListener("submit", async function(e) {
+            e.preventDefault();  // Prevent the default form submission
+    
+            // Collect form data
+            const reportId = reportIdSpan.innerText;  // Get the report ID
+            const restrictionType = restrictionDropdown.value;  // Get the selected restriction type
+            const duration = document.getElementById("duration-dropdown").value;  // Get the duration
+            const description = document.getElementById("description").value;  // Get the description of the violation
+            const username = reportModal.getAttribute('data-username'); // Get the flagged username
+
+            // Validate form data (you can add more validation if needed)
+            if (!restrictionType || !description) {
+                alert("Please fill out all required fields.");
+                return;
+            }
+    
+            // Prepare data to be sent to the backend
+            const data = {
+                report_id: reportId,
+                restriction_type: restrictionType,
+                duration: duration,
+                description: description,
+                username: username
+            };
+    
+            try {
+                const response = await fetch("/admin", {
+                    method: "POST",  // Use POST method for submitting the form
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(data),  // Send the form data as JSON
+                });
+    
+                const result = await response.json();
+                if (response.ok) {
+                    alert("Report submitted successfully!");
+                    reportModal.style.display = "none";  // Close the modal after successful submission
+                    location.reload();
+                } else {
+                    alert("Failed to submit the report. Please try again.");
+                }
+            } catch (error) {
+                console.error("Error:", error);
+                alert("An error occurred. Please try again.");
+            }
+        });
+      });
+      
+    
+
+  
+    // Function to filter flagged users based on search input
+    function filterUsers() {
+    // Get the search input value and convert it to lowercase for case-insensitive matching
+    const searchQuery = document.getElementById('searchInput').value.toLowerCase();
+  
+    // Get all the notification items (user elements)
+    const notificationItems = document.querySelectorAll('.notification-item');
+  
+    // Loop through all notification items and check if they match the search query
+    notificationItems.forEach(item => {
+      const username = item.getAttribute('data-username').toLowerCase();
+      const flagReason = item.getAttribute('data-flag-reason').toLowerCase();
+  
+      // If either the username or flag reason matches the search query, show the item
+      if (username.includes(searchQuery) || flagReason.includes(searchQuery)) {
+        item.style.display = 'block'; // Show the item
+      } else {
+        item.style.display = 'none'; // Hide the item
+        }
+        });
+    }
+    // Function to filter flagged content by reason
+    function filterByReason(reason) {
+    const items = document.querySelectorAll('.notification-item');
+    const buttons = document.querySelectorAll('.tab-buttons button');
+  
+    // Loop through all filter buttons to remove the 'active' class
+    buttons.forEach(button => {
+      button.classList.remove('active');
+    });
+  
+    // Add the 'active' class to the clicked button
+    event.target.classList.add('active');
+  
+    items.forEach(item => {
+      const flagReason = item.getAttribute('data-flag-reason').toLowerCase();
+  
+      // Show the item if the reason matches or show all items if 'all' is selected
+      if (reason === 'all' || flagReason.includes(reason.toLowerCase())) {
+        item.style.display = 'block'; // Show the item
+      } else {
+        item.style.display = 'none'; // Hide the item
+        }
+        });
+    }
+  
+  </script>
+
+</body>
+</html>
